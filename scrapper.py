@@ -15,31 +15,42 @@ def request(url):
     return r.html.xpath('//*[@id="listing-container"]', first=True)
 
 
-def parse(products):
+def parse(products, categoryName):
     for item in products.absolute_links:
         if "#Opinie" in item:
             continue
+        print(item)
         r = s.get(item)
-        name = r.html.find('h1.sc-1bker4h-4', first=True).text
-        # subtext = r.html.find('div.product-subtext', first=True).text
-        price = r.html.find('div.sc-n4n86h-4', first=True).text
-        img = r.html.find('img.sc-1tblmgq-1', first=True)
+        try:
+            name = r.html.find('h1.sc-1bker4h-4', first=True).text
+        except:
+            name = 'none'
+        try:
+            price = r.html.find('div.sc-n4n86h-4', first=True).text
+        except:
+            price = '4 899,00 zł'
+        try:
+            img = r.html.find('img.sc-1tblmgq-1', first=True).attrs.src
+        except:
+            img = 'none'
         try:
             rating = r.html.find('span.sc-1cbpuwv-1', first=True).text
         except:
-            rating = 'none'
-        try:
-            r.html.find('span.sc-fvs7b3-1')
-            stock = 'in stock'
-        except:
-            stock = 'out of stock'
+            rating = '1,0'
+        print(name, price, img, rating)
+        # try:
+        #     r.html.find('span.sc-fvs7b3-1')
+        #     stock = 'in stock'
+        # except:
+        #     stock = 'out of stock'
 
         item = {
             'name': name,
             # 'subtext': subtext,
             'price': price,
             'rating': rating,
-            'stock': stock
+            # 'stock': stock
+            'category': categoryName
         }
         items.append(item)
         time.sleep(0.1)
@@ -61,7 +72,7 @@ def extract_data_from_category(url, categoryName):
         try:
             products = request(url + f'?page={x}')
             print(f'Getting items from page {x} in category' + categoryName)
-            parse(products)
+            parse(products, categoryName)
             print('Total Items: ', len(items))
             x = x + 1
             time.sleep(2)
@@ -76,3 +87,4 @@ def extract_data_from_category(url, categoryName):
 print('beginning of scrapping process')
 extract_data_from_category('https://www.x-kom.pl/g-2/c/159-laptopy-notebooki-ultrabooki.html',
                            'laptopy-notebooki-ultrabooki')
+extract_data_from_category('https://www.x-kom.pl/g-4/c/1590-smartfony-i-telefony.html', 'smartfony-i-telefony')
