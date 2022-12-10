@@ -1,3 +1,8 @@
+import random
+import re
+
+import requests
+from bs4 import BeautifulSoup
 from requests_html import HTMLSession
 import pandas as pd
 import time
@@ -16,46 +21,86 @@ def request(url):
 
 
 def parse(products, categoryName):
-    for item in products.absolute_links:
-        if "#Opinie" in item:
+    for productLink in products.absolute_links:
+        if "#Opinie" in productLink or "apple" in productLink:
             continue
-        print(item)
-        r = s.get(item)
+        print(productLink)
+        r = s.get(productLink)
+        # r2 = request.get(productLink)
+        # print(r.status_code)
         try:
             name = r.html.find('h1.sc-1bker4h-4', first=True).text
         except:
-            name = 'none'
+            name = 'Dobry produkt'
         try:
             price = r.html.find('div.sc-n4n86h-4', first=True).text
         except:
-            price = '4 899,00 zł'
+            price = '2 199,37 zł'
+        price = price.replace("zł", "").replace(" ", "").replace(",", ".")
+        priceNetto = str(round(float(price)/1.23, 2))
         try:
-            img = r.html.find('img.sc-1tblmgq-1', first=True).attrs.src
+            img = re.findall("https://cdn\.x-kom\.pl/i/setup/images/prod/big/.{0,100}jpg", r.text)[0]
         except:
             img = 'none'
+        print(img)
         try:
             rating = r.html.find('span.sc-1cbpuwv-1', first=True).text
         except:
             rating = '1,0'
-        print(name, price, img, rating)
-        # try:
-        #     r.html.find('span.sc-fvs7b3-1')
-        #     stock = 'in stock'
-        # except:
-        #     stock = 'out of stock'
+        try:
+            desc = r.html.find('div.col-md-10', first=True).text
+        except:
+            desc = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean blandit, risus et accumsan convallis, enim dolor pharetra risus, sed laoreet ex erat ut mi. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Suspendisse non enim vitae ex sollicitudin auctor. Integer vulputate nec odio ac molestie. Nunc venenatis accumsan ex, nec molestie metus. Nullam dapibus accumsan justo, eu hendrerit augue bibendum in. Suspendisse iaculis a eros.'
+        try:
+            r.html.find('span.sc-fvs7b3-1', first=True).text
+            stock = '1'
+            amount = str(random.randint(2,12))
+        except:
+            stock = '0'
+            amount = '0'
+        try:
+            atributes = (r.html.find('span.sc-p7lf0n-2'), r.html.find('span.sc-p7lf0n-3'))
+            atributesList = [(atributes[0][i].text,atributes[1][i].text) for i in range(min(len(atributes[0]), len(atributes[1]))) ]
+            try:
+                processor = getProcessor(atributesList, 'Procesor')
+            except:
+                processor = 'Intel Core i5-1135G7'
+            try:
+                memory = getProcessor(atributesList, 'Pamięć')
+            except:
+                memory = '8 BG'
+        except:
+            processor = 'Intel Core i5-1135G7'
+            memory = "8 GB"
+        print(name, processor, memory, amount)
 
         item = {
-            'name': name,
-            # 'subtext': subtext,
-            'price': price,
-            'rating': rating,
-            # 'stock': stock
-            'category': categoryName
+            'Nazwa': name,
+            'Opis': desc,
+            'Cena bez podatku.': priceNetto,
+            'Cena zawiera podatek.': price,
+            'Dostępne do zamówienia': stock,
+            'Ilość': amount,
+            'Kategorie': categoryName,
+            'Procesor': processor,
+            'Pamięć': memory,
+            'Adresy URL zdjęcia': img
         }
         items.append(item)
         time.sleep(0.1)
 
 
+def getImage(link):
+    r = requests.get(link).text
+    soup = BeautifulSoup(r, 'html.parser')
+    for item in soup.find_all('img'):
+        print(item['src'])
+    return r
+
+def getProcessor(list, name):
+    for item in list:
+        if name in item[0]:
+            return item[1]
 
 def output(categoryName):
     df = pd.DataFrame(items)
@@ -68,7 +113,7 @@ def extract_data_from_category(url, categoryName):
     items = []
     x = 1
     print('scrapping of ' + categoryName + ' started! ')
-    while x == 1:
+    while True:
         try:
             products = request(url + f'?page={x}')
             print(f'Getting items from page {x} in category' + categoryName)
@@ -76,7 +121,7 @@ def extract_data_from_category(url, categoryName):
             print('Total Items: ', len(items))
             x = x + 1
             time.sleep(2)
-            if len(items) > 400:
+            if len(items) > 350:
                 break
         except:
             print('No more items!')
