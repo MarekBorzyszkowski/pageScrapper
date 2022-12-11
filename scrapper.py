@@ -1,11 +1,9 @@
 import random
 import re
-
-import requests
-from bs4 import BeautifulSoup
-from requests_html import HTMLSession
-import pandas as pd
 import time
+
+import pandas as pd
+from requests_html import HTMLSession
 
 print('initialize session')
 
@@ -13,6 +11,7 @@ s = HTMLSession()
 items = []
 
 print('finished!')
+
 
 def request(url):
     r = s.get(url)
@@ -37,12 +36,7 @@ def parse(products, categoryName):
         except:
             price = '2 199,37 zł'
         price = price.replace("zł", "").replace(" ", "").replace(",", ".")
-        priceNetto = str(round(float(price)/1.23, 2))
-        try:
-            img = re.findall("https://cdn\.x-kom\.pl/i/setup/images/prod/big/.{0,100}jpg", r.text)[0]
-        except:
-            img = 'none'
-        print(img)
+        priceNetto = str(round(float(price) / 1.23, 2))
         try:
             rating = r.html.find('span.sc-1cbpuwv-1', first=True).text
         except:
@@ -54,25 +48,40 @@ def parse(products, categoryName):
         try:
             r.html.find('span.sc-fvs7b3-1', first=True).text
             stock = '1'
-            amount = str(random.randint(2,12))
+            amount = str(random.randint(2, 12))
         except:
             stock = '0'
             amount = '0'
         try:
-            atributes = (r.html.find('span.sc-p7lf0n-2'), r.html.find('span.sc-p7lf0n-3'))
-            atributesList = [(atributes[0][i].text,atributes[1][i].text) for i in range(min(len(atributes[0]), len(atributes[1]))) ]
+            attributes = (r.html.find('span.sc-p7lf0n-2'), r.html.find('span.sc-p7lf0n-3'))
+            attributesList = [(attributes[0][i].text, attributes[1][i].text) for i in
+                              range(min(len(attributes[0]), len(attributes[1])))]
             try:
-                processor = getProcessor(atributesList, 'Procesor')
+                processor = getSelectedAttribute(attributesList, 'Procesor')
             except:
                 processor = 'Intel Core i5-1135G7'
             try:
-                memory = getProcessor(atributesList, 'Pamięć')
+                memory = getSelectedAttribute(attributesList, 'Pamięć')
             except:
                 memory = '8 BG'
         except:
             processor = 'Intel Core i5-1135G7'
             memory = "8 GB"
-        print(name, processor, memory, amount)
+        try:
+            img = re.findall("https://cdn\.x-kom\.pl/i/setup/images/prod/big/.{0,100}jpg", r.text)[0]
+            try:
+                img_data = s.get(img).content
+                pat = name + '.jpg'
+                pat = pat.replace(' ', '_').replace('/', '_')
+                with open('images\\' + pat, 'wb') as handler:
+                    handler.write(img_data)
+            except:
+                img_data = None
+                pat = 'none'
+        except:
+            img = 'none'
+            pat = 'none'
+        print(img)
 
         item = {
             'Nazwa': name,
@@ -84,23 +93,18 @@ def parse(products, categoryName):
             'Kategorie': categoryName,
             'Procesor': processor,
             'Pamięć': memory,
-            'Adresy URL zdjęcia': img
+            'Adresy URL zdjęcia': img,
+            'Nazwa obrazu': pat
         }
         items.append(item)
         time.sleep(0.1)
 
 
-def getImage(link):
-    r = requests.get(link).text
-    soup = BeautifulSoup(r, 'html.parser')
-    for item in soup.find_all('img'):
-        print(item['src'])
-    return r
-
-def getProcessor(list, name):
+def getSelectedAttribute(list, name):
     for item in list:
         if name in item[0]:
             return item[1]
+
 
 def output(categoryName):
     df = pd.DataFrame(items)
